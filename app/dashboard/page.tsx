@@ -39,9 +39,6 @@ export default function DashboardPage() {
 
   const handleCreateDialogChange = (open: boolean) => {
     setIsCreateDialogOpen(open);
-    if (!open) {
-      refetch();
-    }
   };
 
   const totalTasks = tasks.length;
@@ -54,12 +51,22 @@ export default function DashboardPage() {
       new Date(task.dueDate) < new Date()
   ).length;
 
+  const tasksForSelectedDate = tasks.filter((task) => {
+    if (!task.dueDate) return false;
+    const taskDate = new Date(task.dueDate);
+    return (
+      taskDate.getDate() === selectedDate?.getDate() &&
+      taskDate.getMonth() === selectedDate?.getMonth() &&
+      taskDate.getFullYear() === selectedDate?.getFullYear()
+    );
+  });
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <Button 
-          onClick={() => handleAddTask()} 
+        <h1 className="text-3xl font-bold tracking-tight dark:text-white">Dashboard</h1>
+        <Button
+          onClick={() => handleAddTask()}
           className="flex items-center gap-2"
         >
           <Plus className="h-4 w-4" /> Add Task
@@ -67,41 +74,41 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="dark:bg-gray-800/50 dark:border-gray-700">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
+            <CardTitle className="text-sm font-medium dark:text-gray-200">Total Tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalTasks}</div>
+            <div className="text-2xl font-bold dark:text-white">{totalTasks}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="dark:bg-gray-800/50 dark:border-gray-700">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
+            <CardTitle className="text-sm font-medium dark:text-gray-200">Completed Tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{completedTasks}</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{completedTasks}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="dark:bg-gray-800/50 dark:border-gray-700">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
+            <CardTitle className="text-sm font-medium dark:text-gray-200">Pending Tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{pendingTasks}</div>
+            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pendingTasks}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="dark:bg-gray-800/50 dark:border-gray-700">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
+            <CardTitle className="text-sm font-medium dark:text-gray-200">Overdue Tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{overdueTasks}</div>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{overdueTasks}</div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
+      <Card className="dark:bg-gray-800/50 dark:border-gray-700">
         <CardContent className="p-6">
           <DashboardCalendar
             tasks={tasks}

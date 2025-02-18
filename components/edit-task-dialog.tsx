@@ -1,6 +1,7 @@
-'use client';
+'use client'
 
-import { Button } from '@/components/ui/button';
+import { Task } from '@/db/schema'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -8,223 +9,136 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import * as z from 'zod';
-import { cn } from '@/lib/utils';
-import { DayPicker } from 'react-day-picker';
-import 'react-day-picker/dist/style.css';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Textarea } from '@/components/ui/textarea';
-
-const formSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
-  priority: z.enum(['low', 'medium', 'high']),
-  dueDate: z.date().optional(),
-  status: z.enum(['pending', 'in_progress', 'completed']),
-});
+} from '@/components/ui/select'
+import { Textarea } from './ui/textarea'
+import { useState } from 'react'
+import { updateTask } from '@/app/actions/tasks'
+import { useRouter } from 'next/navigation'
+import { format } from 'date-fns'
 
 interface EditTaskDialogProps {
-  task?: {
-    id: number;
-    title: string;
-    description?: string;
-    priority: 'low' | 'medium' | 'high';
-    dueDate?: string | null;
-    status: 'pending' | 'in_progress' | 'completed';
-  };
-  defaultDate?: Date | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: () => void;
+  task: Task
+  children: React.ReactNode
 }
 
-export function EditTaskDialog({
-  task,
-  defaultDate,
-  open,
-  onOpenChange,
-  onSave,
-}: EditTaskDialogProps) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      title: task?.title || '',
-      description: task?.description || '',
-      priority: task?.priority || 'low',
-      dueDate: task?.dueDate ? new Date(task.dueDate) : defaultDate || undefined,
-      status: task?.status || 'pending',
-    },
-  });
+export function EditTaskDialog({ task, children }: EditTaskDialogProps) {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState(task.title)
+  const [description, setDescription] = useState(task.description || '')
+  const [priority, setPriority] = useState(task.priority)
+  const [status, setStatus] = useState(task.status)
+  const [dueDate, setDueDate] = useState(task.dueDate ? format(new Date(task.dueDate), 'yyyy-MM-dd') : '')
+  const router = useRouter()
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      const response = await fetch('/api/tasks' + (task ? `/${task.id}` : ''), {
-        method: task ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save task');
-      }
-
-      form.reset();
-      onSave();
-    } catch (error) {
-      console.error('Failed to save task:', error);
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await updateTask(task.id, {
+      ...task,
+      title,
+      description,
+      priority,
+      status,
+      dueDate: dueDate ? new Date(dueDate) : null,
+    })
+    setOpen(false)
+    router.refresh()
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{task ? 'Edit Task' : 'Create Task'}</DialogTitle>
-          <DialogDescription>
-            {task ? 'Make changes to your task here.' : 'Add a new task to your list.'}
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Title</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Task title" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Add task description..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Priority</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Due Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, 'PPP')
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <DayPicker
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="submit">{task ? 'Save Changes' : 'Create Task'}</Button>
-            </DialogFooter>
-          </form>
-        </Form>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px] dark:bg-gray-900 dark:border-gray-800">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle className="dark:text-gray-200">Edit Task</DialogTitle>
+            <DialogDescription className="dark:text-gray-400">
+              Make changes to your task here. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title" className="dark:text-gray-300">Title</Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:border-blue-500"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description" className="dark:text-gray-300">Description</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:border-blue-500"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="priority" className="dark:text-gray-300">Priority</Label>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger 
+                  id="priority"
+                  className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+                >
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+                  <SelectItem value="low" className="dark:text-gray-200 dark:focus:bg-gray-700">Low</SelectItem>
+                  <SelectItem value="medium" className="dark:text-gray-200 dark:focus:bg-gray-700">Medium</SelectItem>
+                  <SelectItem value="high" className="dark:text-gray-200 dark:focus:bg-gray-700">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="status" className="dark:text-gray-300">Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger 
+                  id="status"
+                  className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+                >
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+                  <SelectItem value="todo" className="dark:text-gray-200 dark:focus:bg-gray-700">To Do</SelectItem>
+                  <SelectItem value="in-progress" className="dark:text-gray-200 dark:focus:bg-gray-700">In Progress</SelectItem>
+                  <SelectItem value="completed" className="dark:text-gray-200 dark:focus:bg-gray-700">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="dueDate" className="dark:text-gray-300">Due Date</Label>
+              <Input
+                id="dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:border-blue-500"
+              />
+            </div>
+          </div>
+          <DialogFooter className="dark:bg-gray-900">
+            <Button 
+              type="submit"
+              className="dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
+            >
+              Save changes
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

@@ -1,178 +1,147 @@
-'use client';
+'use client'
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { format } from 'date-fns';
-import { useEffect } from 'react';
-
-const formSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
-  priority: z.enum(['low', 'medium', 'high']),
-  dueDate: z.string(),
-  status: z.enum(['pending', 'in_progress', 'completed']),
-});
-
-type FormData = z.infer<typeof formSchema>;
+} from '@/components/ui/select'
+import { Textarea } from './ui/textarea'
+import { useState } from 'react'
+import { createTask } from '@/app/actions/tasks'
+import { useRouter } from 'next/navigation'
 
 interface AddTaskDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  defaultDate?: Date | null;
+  children: React.ReactNode
 }
 
-export function AddTaskDialog({
-  open,
-  onOpenChange,
-  defaultDate,
-}: AddTaskDialogProps) {
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    formState: { errors },
-  } = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      title: '',
-      description: '',
-      priority: 'medium',
-      status: 'pending',
-      dueDate: defaultDate 
-        ? format(defaultDate, 'yyyy-MM-dd')
-        : format(new Date(), 'yyyy-MM-dd'),
-    },
-  });
+export function AddTaskDialog({ children }: AddTaskDialogProps) {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
+  const [status, setStatus] = useState<'todo' | 'in-progress' | 'completed'>('todo')
+  const [dueDate, setDueDate] = useState('')
+  const router = useRouter()
 
-  useEffect(() => {
-    if (open) {
-      reset({
-        title: '',
-        description: '',
-        priority: 'medium',
-        status: 'pending',
-        dueDate: defaultDate 
-          ? format(defaultDate, 'yyyy-MM-dd')
-          : format(new Date(), 'yyyy-MM-dd'),
-      });
-    }
-  }, [open, defaultDate, reset]);
-
-  const onSubmit = async (data: FormData) => {
-    try {
-      const response = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create task');
-      }
-
-      reset();
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Error creating task:', error);
-    }
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await createTask({
+      title,
+      description,
+      priority,
+      status,
+      dueDate: dueDate ? new Date(dueDate) : null,
+    })
+    setOpen(false)
+    router.refresh()
+    // Reset form
+    setTitle('')
+    setDescription('')
+    setPriority('medium')
+    setStatus('todo')
+    setDueDate('')
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <form onSubmit={handleSubmit(onSubmit)}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px] dark:bg-gray-900 dark:border-gray-800">
+        <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Add Task</DialogTitle>
+            <DialogTitle className="dark:text-gray-200">Add New Task</DialogTitle>
+            <DialogDescription className="dark:text-gray-400">
+              Create a new task here. Click save when you're done.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title" className="dark:text-gray-300">Title</Label>
               <Input
                 id="title"
-                {...register('title')}
-                className={errors.title ? 'border-red-500' : ''}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:border-blue-500"
+                required
               />
-              {errors.title && (
-                <span className="text-sm text-red-500">
-                  {errors.title.message}
-                </span>
-              )}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" className="dark:text-gray-300">Description</Label>
               <Textarea
                 id="description"
-                {...register('description')}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:border-blue-500"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select
-                onValueChange={(value) => setValue('priority', value as 'low' | 'medium' | 'high')}
-                defaultValue="medium"
-              >
-                <SelectTrigger>
+              <Label htmlFor="priority" className="dark:text-gray-300">Priority</Label>
+              <Select value={priority} onValueChange={(value: 'low' | 'medium' | 'high') => setPriority(value)}>
+                <SelectTrigger 
+                  id="priority"
+                  className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+                >
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
+                <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+                  <SelectItem value="low" className="dark:text-gray-200 dark:focus:bg-gray-700">Low</SelectItem>
+                  <SelectItem value="medium" className="dark:text-gray-200 dark:focus:bg-gray-700">Medium</SelectItem>
+                  <SelectItem value="high" className="dark:text-gray-200 dark:focus:bg-gray-700">High</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="dueDate">Due Date</Label>
+              <Label htmlFor="status" className="dark:text-gray-300">Status</Label>
+              <Select value={status} onValueChange={(value: 'todo' | 'in-progress' | 'completed') => setStatus(value)}>
+                <SelectTrigger 
+                  id="status"
+                  className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+                >
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+                  <SelectItem value="todo" className="dark:text-gray-200 dark:focus:bg-gray-700">To Do</SelectItem>
+                  <SelectItem value="in-progress" className="dark:text-gray-200 dark:focus:bg-gray-700">In Progress</SelectItem>
+                  <SelectItem value="completed" className="dark:text-gray-200 dark:focus:bg-gray-700">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="dueDate" className="dark:text-gray-300">Due Date</Label>
               <Input
                 id="dueDate"
                 type="date"
-                {...register('dueDate')}
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:border-blue-500"
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                onValueChange={(value) => setValue('status', value as 'pending' | 'in_progress' | 'completed')}
-                defaultValue="pending"
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
-          <DialogFooter>
-            <Button type="submit">Create Task</Button>
+          <DialogFooter className="dark:bg-gray-900">
+            <Button 
+              type="submit"
+              className="dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
+            >
+              Create Task
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

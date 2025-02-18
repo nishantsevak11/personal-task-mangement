@@ -1,13 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import ReactCalendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
-import { useQuery } from '@tanstack/react-query';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { DayPicker } from 'react-day-picker';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { Button } from './ui/button';
 import { AddTaskDialog } from './add-task-dialog';
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
 
 interface Task {
   id: number;
@@ -157,7 +158,7 @@ export function Calendar({ className, onDateSelect }: CalendarProps) {
   return (
     <div className={className}>
       <style jsx global>{`
-        .react-calendar {
+        .react-day-picker {
           width: 100%;
           border: none;
           font-family: inherit;
@@ -165,7 +166,7 @@ export function Calendar({ className, onDateSelect }: CalendarProps) {
           box-shadow: 0 1px 3px rgba(0,0,0,0.12);
           border-radius: 0.5rem;
         }
-        .react-calendar__tile {
+        .react-day-picker__month {
           position: relative;
           height: 80px;
           display: flex;
@@ -176,53 +177,88 @@ export function Calendar({ className, onDateSelect }: CalendarProps) {
           font-size: 0.875rem;
           cursor: pointer;
         }
-        .react-calendar__month-view__days__day {
+        .react-day-picker__day {
           color: #374151;
         }
-        .react-calendar__month-view__days__day--weekend {
+        .react-day-picker__day--weekend {
           color: #ef4444;
         }
-        .react-calendar__month-view__days__day--neighboringMonth {
+        .react-day-picker__day--neighboringMonth {
           color: #9ca3af;
         }
-        .react-calendar__tile:enabled:hover,
-        .react-calendar__tile:enabled:focus {
+        .react-day-picker__day:enabled:hover,
+        .react-day-picker__day:enabled:focus {
           background-color: #f3f4f6;
         }
-        .react-calendar__tile--active {
+        .react-day-picker__day--selected {
           background-color: #3b82f6 !important;
           color: white;
         }
-        .react-calendar__tile--now {
+        .react-day-picker__day--today {
           background-color: #f3f4f6;
         }
-        .react-calendar__navigation {
+        .react-day-picker__navigation {
           margin-bottom: 0;
         }
-        .react-calendar__navigation button {
+        .react-day-picker__navigation button {
           min-width: 44px;
           background: none;
           font-size: 0.875rem;
           color: #374151;
         }
-        .react-calendar__navigation button:enabled:hover,
-        .react-calendar__navigation button:enabled:focus {
+        .react-day-picker__navigation button:enabled:hover,
+        .react-day-picker__navigation button:enabled:focus {
           background-color: #f3f4f6;
         }
-        .react-calendar__navigation button[disabled] {
+        .react-day-picker__navigation button[disabled] {
           background-color: #f9fafb;
         }
       `}</style>
-      <ReactCalendar
-        value={selectedDate}
-        onChange={handleDateClick}
-        tileContent={renderTileContent}
-        className="rounded-lg shadow-sm"
-        tileClassName={({ date }) => {
-          const isSelected = selectedDate && 
-            date.toISOString().split('T')[0] === selectedDate.toISOString().split('T')[0];
-          return isSelected ? 'bg-blue-50' : '';
+      <DayPicker
+        showOutsideDays={true}
+        className={cn("p-3", className)}
+        classNames={{
+          months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+          month: "space-y-4",
+          caption: "flex justify-center pt-1 relative items-center",
+          caption_label: "text-sm font-medium dark:text-gray-200",
+          nav: "space-x-1 flex items-center",
+          nav_button: cn(
+            buttonVariants({ variant: "outline" }),
+            "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
+          ),
+          nav_button_previous: "absolute left-1",
+          nav_button_next: "absolute right-1",
+          table: "w-full border-collapse space-y-1",
+          head_row: "flex",
+          head_cell:
+            "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] dark:text-gray-400",
+          row: "flex w-full mt-2",
+          cell: cn(
+            "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent dark:text-gray-300",
+            "bg-blue-50"
+          ),
+          day: cn(
+            buttonVariants({ variant: "ghost" }),
+            "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground dark:hover:bg-gray-700 dark:hover:text-white"
+          ),
+          day_range_start: "day-range-start",
+          day_range_end: "day-range-end",
+          day_selected:
+            "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground dark:bg-primary dark:text-primary-foreground",
+          day_today: "bg-accent text-accent-foreground dark:bg-gray-700 dark:text-white",
+          day_outside:
+            "day-outside text-muted-foreground opacity-50 dark:text-gray-500",
+          day_disabled: "text-muted-foreground opacity-50 dark:text-gray-600",
+          day_range_middle:
+            "aria-selected:bg-accent aria-selected:text-accent-foreground dark:aria-selected:bg-gray-800 dark:aria-selected:text-gray-200",
+          day_hidden: "invisible",
         }}
+        components={{
+          IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4 dark:text-gray-400" />,
+          IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4 dark:text-gray-400" />,
+        }}
+        tileContent={renderTileContent}
       />
       <AddTaskDialog
         open={isAddingTask}
