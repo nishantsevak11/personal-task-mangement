@@ -1,170 +1,139 @@
 'use client'
 
-import { Task, Project } from '@/lib/types'
-import { TaskCard } from './task-card'
-import { Button } from './ui/button'
-import { AddTaskDialog } from './add-task-dialog'
-import { Plus } from 'lucide-react'
 import { useState } from 'react'
-import { Input } from './ui/input'
+import { Task } from '@/lib/types'
 import { Badge } from './ui/badge'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select'
+import TaskDialog from './task-dialog'
+import { Plus, Filter } from 'lucide-react'
 
 interface TaskListProps {
   tasks: Task[]
-  onTasksChange?: () => void
-  projects: Project[]
+  onUpdate?: () => void
 }
 
-export function TaskList({ tasks = [], onTasksChange, projects }: TaskListProps) {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState<'priority' | 'date'>('date')
+export default function TaskList({ tasks, onUpdate }: TaskListProps) {
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<'dueDate' | 'priority'>('dueDate')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
-  const filteredAndSortedTasks = tasks
-    .filter((task) =>
-      task.title.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+  const filteredTasks = tasks
+    .filter((task) => {
+      const matchesSearch = task.title.toLowerCase().includes(search.toLowerCase())
+      const matchesStatus = statusFilter === 'all' || task.status === statusFilter
+      return matchesSearch && matchesStatus
+    })
     .sort((a, b) => {
-      if (sortBy === 'priority') {
-        const priorityOrder = { low: 0, medium: 1, high: 2 }
-        const diff =
-          priorityOrder[a.priority as keyof typeof priorityOrder] -
-          priorityOrder[b.priority as keyof typeof priorityOrder]
-        return sortOrder === 'asc' ? diff : -diff
+      if (sortBy === 'dueDate') {
+        if (!a.dueDate) return 1
+        if (!b.dueDate) return -1
+        const dateA = new Date(a.dueDate)
+        const dateB = new Date(b.dueDate)
+        return sortOrder === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
       } else {
-        const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0
-        const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0
-        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
+        const priorityOrder = { low: 0, medium: 1, high: 2 }
+        const orderA = priorityOrder[a.priority]
+        const orderB = priorityOrder[b.priority]
+        return sortOrder === 'asc' ? orderA - orderB : orderB - orderA
       }
     })
 
-  const getProjectColor = (projectId: number | null) => {
-    if (!projectId) return null
-    const project = projects.find(p => p.id === projectId)
-    return project?.color
-  }
-
-  const getProjectName = (projectId: number | null) => {
-    if (!projectId) return null
-    const project = projects.find(p => p.id === projectId)
-    return project?.name
-  }
-
   return (
     <div className="space-y-4">
-      <div className="flex gap-4 items-center">
-        <Input
-          type="text"
-          placeholder="Search tasks..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1"
-        />
-        <Button
-          variant="outline"
-          onClick={() => setSortBy(sortBy === 'priority' ? 'date' : 'priority')}
-        >
-          Sort by {sortBy === 'priority' ? 'Date' : 'Priority'}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-        >
-          {sortOrder === 'asc' ? '↑' : '↓'}
-        </Button>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Add Task
-        </Button>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <Input
+            placeholder="Search tasks..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={(value: 'dueDate' | 'priority') => setSortBy(value)}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="dueDate">Due Date</SelectItem>
+              <SelectItem value="priority">Priority</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+          >
+            {sortOrder === 'asc' ? '↑' : '↓'}
+          </Button>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        {filteredAndSortedTasks.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            No tasks found. Add some tasks to get started!
+      <div className="grid gap-4">
+        {filteredTasks.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            No tasks found. Create your first task to get started!
           </div>
         ) : (
-          filteredAndSortedTasks.map((task) => (
-            <div
-              key={task.id}
-              className="flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm"
-            >
-              <div className="space-y-1 flex-1">
-                <div className="flex items-center gap-2">
-                  {task.projectId && (
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: getProjectColor(task.projectId) }}
-                    />
-                  )}
-                  <h3 className="font-medium">{task.title}</h3>
-                </div>
-                {task.description && (
-                  <p className="text-sm text-gray-500">{task.description}</p>
-                )}
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {task.projectId && (
-                    <Badge
-                      variant="outline"
-                      style={{
-                        backgroundColor: getProjectColor(task.projectId) + '20',
-                        borderColor: getProjectColor(task.projectId),
-                        color: getProjectColor(task.projectId),
-                      }}
-                    >
-                      {getProjectName(task.projectId)}
-                    </Badge>
-                  )}
-                  <Badge
-                    variant={
-                      task.priority === 'high'
-                        ? 'destructive'
-                        : task.priority === 'medium'
-                        ? 'default'
-                        : 'secondary'
-                    }
-                  >
-                    {task.priority}
-                  </Badge>
-                  <Badge
-                    variant={
-                      task.status === 'completed'
-                        ? 'default'
-                        : task.status === 'in_progress'
-                        ? 'secondary'
-                        : 'outline'
-                    }
-                  >
-                    {task.status}
-                  </Badge>
+          filteredTasks.map((task) => (
+            <TaskDialog key={task.id} task={task} onUpdate={onUpdate}>
+              <div className="cursor-pointer">
+                <div className="rounded-lg border p-4 hover:bg-accent/50 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <h3 className="font-medium">{task.title}</h3>
+                      {task.description && (
+                        <p className="text-sm text-muted-foreground">
+                          {task.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{task.status}</Badge>
+                      <Badge
+                        variant="secondary"
+                        className={
+                          task.priority === 'high'
+                            ? 'bg-red-100 text-red-800'
+                            : task.priority === 'medium'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-green-100 text-green-800'
+                        }
+                      >
+                        {task.priority}
+                      </Badge>
+                    </div>
+                  </div>
                   {task.dueDate && (
-                    <Badge variant="outline">
-                      Due {new Date(task.dueDate).toLocaleDateString()}
-                    </Badge>
-                  )}
-                  {task.progress > 0 && (
-                    <Badge variant="secondary">
-                      {task.progress}% complete
-                    </Badge>
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      Due: {new Date(task.dueDate).toLocaleDateString()}
+                    </div>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 ml-4">
-                <TaskCard task={task} onUpdate={onTasksChange} />
-              </div>
-            </div>
+            </TaskDialog>
           ))
         )}
       </div>
-
-      <AddTaskDialog
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
-        onTaskCreated={() => {
-          setIsCreateDialogOpen(false)
-          onTasksChange?.()
-        }}
-      />
     </div>
   )
 }

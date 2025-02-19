@@ -1,14 +1,15 @@
+import type { NextAuthOptions } from "next-auth"
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import { db } from "@/db"
+import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { eq } from "drizzle-orm"
 import { users } from "@/db/schema"
-import { NextAuthOptions } from "next-auth"
 import { User } from "next-auth"
 
 if (!process.env.NEXTAUTH_SECRET) {
-  throw new Error("NEXTAUTH_SECRET must be set")
+  throw new Error("NEXTAUTH_SECRET is not set")
 }
 
 export const options: NextAuthOptions = {
@@ -25,45 +26,42 @@ export const options: NextAuthOptions = {
     signIn: "/login",
   },
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
       },
-      async authorize(credentials): Promise<User | null> {
+      async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           return null
         }
 
-        try {
-          const [user] = await db
-            .select()
-            .from(users)
-            .where(eq(users.email, credentials.email))
-            .limit(1)
+        const user = await db.query.users.findFirst({
+          where: eq(users.email, credentials.email),
+        })
 
-          if (!user) {
-            return null
-          }
-
-          const passwordMatch = await bcrypt.compare(
-            credentials.password,
-            user.password
-          )
-
-          if (!passwordMatch) {
-            return null
-          }
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-          }
-        } catch (error) {
-          console.error("Auth error:", error)
+        if (!user) {
           return null
+        }
+
+        const passwordsMatch = await bcrypt.compare(
+          credentials.password,
+          user.password
+        )
+
+        if (!passwordsMatch) {
+          return null
+        }
+
+        return {
+          id: user.id.toString(),
+          email: user.email,
+          name: user.name,
         }
       },
     }),
@@ -82,6 +80,12 @@ export const options: NextAuthOptions = {
         session.user.id = token.id as string
         session.user.email = token.email as string
         session.user.name = token.name as string
+      }
+      return session
+    },
+    async session({ token, session }) {
+      if (token && session.user) {
+        session.user.id = token.sub
       }
       return session
     },

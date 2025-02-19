@@ -1,12 +1,11 @@
-import type { Config } from 'drizzle-kit';
-import * as dotenv from 'dotenv';
+import type { Config } from 'drizzle-kit'
+import * as dotenv from 'dotenv'
 
-// Load .env.local first, then fall back to .env
-dotenv.config({ path: '.env.local' });
-dotenv.config();
+dotenv.config({ path: '.env.local' })
+dotenv.config()
 
 if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is not set');
+  throw new Error('DATABASE_URL is not set')
 }
 
 export default {
@@ -16,4 +15,4 @@ export default {
   dbCredentials: {
     connectionString: process.env.DATABASE_URL,
   },
-} satisfies Config;
+} satisfies Config

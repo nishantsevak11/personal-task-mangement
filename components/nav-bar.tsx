@@ -11,6 +11,7 @@ import {
   Menu,
   User,
   X,
+  FolderKanban,
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,11 @@ const navItems = [
     path: '/tasks',
     name: 'Tasks',
     icon: ListTodo,
+  },
+  {
+    path: '/projects',
+    name: 'Projects',
+    icon: FolderKanban,
   },
   {
     path: '/profile',
