@@ -1,100 +1,108 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
+import { useState } from 'react'
+import { signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import Link from 'next/link'
+import { AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { login } = useAuth();
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError('');
-    setLoading(true);
+    event.preventDefault()
+    setError(null)
+    setLoading(true)
 
-    const formData = new FormData(event.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
+    const formData = new FormData(event.currentTarget)
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
 
     try {
-      await login(email, password);
-      router.push('/dashboard');
+      const result = await signIn('credentials', {
+        redirect: false,
+        email,
+        password,
+      })
+
+      if (result?.error) {
+        setError('Invalid email or password')
+        setLoading(false)
+        return
+      }
+
+      router.push('/dashboard')
+      router.refresh()
     } catch (error) {
-      setError('Invalid email or password');
-    } finally {
-      setLoading(false);
+      setError('An error occurred. Please try again.')
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link
-              href="/register"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              create a new account
-            </Link>
-          </p>
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="mx-auto w-full max-w-md space-y-6 p-6">
+        <div className="space-y-2 text-center">
+          <h1 className="text-3xl font-bold">Welcome back</h1>
+          <p className="text-gray-500">Enter your credentials to access your account</p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-              />
-            </div>
-          </div>
 
+        <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="text-red-500 text-sm text-center">{error}</div>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
-
-          <div>
-            <Button
-              type="submit"
-              className="w-full"
+          
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="name@example.com"
+              required
               disabled={loading}
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </Button>
+            />
           </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loading}
+          >
+            {loading ? 'Signing in...' : 'Sign in'}
+          </Button>
         </form>
+
+        <div className="text-center text-sm">
+          Don't have an account?{' '}
+          <Link
+            href="/register"
+            className="font-medium text-indigo-600 hover:text-indigo-500"
+          >
+            Sign up
+          </Link>
+        </div>
       </div>
     </div>
-  );
+  )
 }

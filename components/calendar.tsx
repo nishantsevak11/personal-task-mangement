@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { Button } from './ui/button';
 import { AddTaskDialog } from './add-task-dialog';
 import { cn } from "@/lib/utils";
-import { buttonVariants } from "@/components/ui/button";
+import { useQuery } from '@tanstack/react-query';
 
 interface Task {
   id: number;
@@ -224,7 +224,6 @@ export function Calendar({ className, onDateSelect }: CalendarProps) {
           caption_label: "text-sm font-medium dark:text-gray-200",
           nav: "space-x-1 flex items-center",
           nav_button: cn(
-            buttonVariants({ variant: "outline" }),
             "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
           ),
           nav_button_previous: "absolute left-1",
@@ -239,7 +238,6 @@ export function Calendar({ className, onDateSelect }: CalendarProps) {
             "bg-blue-50"
           ),
           day: cn(
-            buttonVariants({ variant: "ghost" }),
             "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground dark:hover:bg-gray-700 dark:hover:text-white"
           ),
           day_range_start: "day-range-start",
@@ -257,6 +255,7 @@ export function Calendar({ className, onDateSelect }: CalendarProps) {
         components={{
           IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4 dark:text-gray-400" />,
           IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4 dark:text-gray-400" />,
+          NavButton: ({ ...props }) => <Button {...props} />,
         }}
         tileContent={renderTileContent}
       />

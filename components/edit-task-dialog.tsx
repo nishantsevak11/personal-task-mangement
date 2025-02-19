@@ -25,6 +25,7 @@ import { useState } from 'react'
 import { updateTask } from '@/app/actions/tasks'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
+import { toast } from 'sonner'
 
 interface EditTaskDialogProps {
   task: Task
@@ -42,16 +43,24 @@ export function EditTaskDialog({ task, children }: EditTaskDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await updateTask(task.id, {
-      ...task,
-      title,
-      description,
-      priority,
-      status,
-      dueDate: dueDate ? new Date(dueDate) : null,
-    })
-    setOpen(false)
-    router.refresh()
+    toast.promise(
+      async () => {
+        await updateTask(task.id, {
+          title,
+          description,
+          priority,
+          status,
+          dueDate: dueDate ? new Date(dueDate) : null,
+        })
+        setOpen(false)
+        router.refresh()
+      },
+      {
+        loading: 'Updating task...',
+        success: 'Task updated successfully! 🎉',
+        error: 'Failed to update task',
+      }
+    )
   }
 
   return (

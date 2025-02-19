@@ -1,6 +1,6 @@
 'use client'
 
-import { Task } from '@/db/schema'
+import { Task } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardFooter } from './ui/card'
 import { Badge } from './ui/badge'
 import { format } from 'date-fns'
@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { EditTaskDialog } from './edit-task-dialog'
 import { Button } from './ui/button'
 import { Pencil, Trash2 } from 'lucide-react'
-import { deleteTask, updateTask } from '@/app/actions/tasks'
+import { deleteTask, updateTask } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import {
   DropdownMenu,
@@ -16,6 +16,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
+import { toast } from 'sonner'
+import { useState } from 'react'
 
 const priorityStyles = {
   low: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
@@ -31,26 +33,61 @@ const statusStyles = {
 
 interface TaskCardProps {
   task: Task
+  onUpdate?: () => void
 }
 
-export function TaskCard({ task }: TaskCardProps) {
+export function TaskCard({ task, onUpdate }: TaskCardProps) {
   const router = useRouter()
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDelete = async () => {
-    await deleteTask(task.id)
-    router.refresh()
+    toast.promise(
+      async () => {
+        setIsDeleting(true)
+        try {
+          await deleteTask(task.id)
+          router.refresh()
+        } finally {
+          setIsDeleting(false)
+        }
+      },
+      {
+        loading: 'Deleting task...',
+        success: 'Task deleted successfully!',
+        error: 'Failed to delete task',
+      }
+    )
   }
 
   const handleStatusChange = async (newStatus: Task['status']) => {
-    await updateTask(task.id, {
-      ...task,
-      status: newStatus,
-    })
-    router.refresh()
+    const statusMessages = {
+      todo: 'Task moved to To Do',
+      'in-progress': 'Task moved to In Progress',
+      completed: 'Task marked as Completed! 🎉',
+    }
+
+    toast.promise(
+      async () => {
+        await updateTask(task.id, {
+          ...task,
+          status: newStatus,
+        })
+        router.refresh()
+      },
+      {
+        loading: 'Updating task status...',
+        success: statusMessages[newStatus],
+        error: 'Failed to update task status',
+      }
+    )
   }
 
   return (
-    <Card className="group relative overflow-hidden transition-all hover:shadow-md dark:hover:shadow-primary/5">
+    <Card className={cn(
+      "group relative overflow-hidden transition-all hover:shadow-md dark:hover:shadow-primary/5",
+      "animate-in slide-in-from-bottom-2 duration-300 ease-in-out",
+      isDeleting && "animate-out slide-out-to-right duration-200 ease-in-out"
+    )}>
       <CardHeader className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
@@ -76,8 +113,9 @@ export function TaskCard({ task }: TaskCardProps) {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity dark:hover:bg-muted"
+              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity dark:hover:bg-muted hover:text-red-500 dark:hover:text-red-400"
               onClick={handleDelete}
+              disabled={isDeleting}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -89,7 +127,8 @@ export function TaskCard({ task }: TaskCardProps) {
           <Badge
             variant="secondary"
             className={cn(
-              priorityStyles[task.priority as keyof typeof priorityStyles]
+              priorityStyles[task.priority as keyof typeof priorityStyles],
+              "transition-all duration-200 hover:scale-105"
             )}
           >
             {task.priority}
@@ -97,13 +136,20 @@ export function TaskCard({ task }: TaskCardProps) {
           <Badge
             variant="secondary"
             className={cn(
-              statusStyles[task.status as keyof typeof statusStyles]
+              statusStyles[task.status as keyof typeof statusStyles],
+              "transition-all duration-200 hover:scale-105"
             )}
           >
             {task.status}
           </Badge>
           {task.dueDate && (
-            <Badge variant="outline" className="dark:border-muted dark:text-muted-foreground">
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "dark:border-muted dark:text-muted-foreground",
+                "transition-all duration-200 hover:scale-105"
+              )}
+            >
               Due {format(new Date(task.dueDate), 'MMM d, yyyy')}
             </Badge>
           )}
@@ -117,27 +163,29 @@ export function TaskCard({ task }: TaskCardProps) {
           <DropdownMenuTrigger asChild>
             <Button 
               variant="outline" 
-              className="dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 dark:text-gray-200"
+              className="dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700 dark:text-gray-200 transition-all duration-200 hover:scale-105"
             >
               Change Status
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="dark:bg-gray-800 dark:border-gray-700">
+          <DropdownMenuContent 
+            className="dark:bg-gray-800 dark:border-gray-700 animate-in zoom-in-90 duration-200"
+          >
             <DropdownMenuItem 
               onClick={() => handleStatusChange('todo')}
-              className="dark:text-gray-200 dark:focus:bg-gray-700 dark:focus:text-white"
+              className="dark:text-gray-200 dark:focus:bg-gray-700 dark:focus:text-white transition-colors"
             >
               To Do
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => handleStatusChange('in-progress')}
-              className="dark:text-gray-200 dark:focus:bg-gray-700 dark:focus:text-white"
+              className="dark:text-gray-200 dark:focus:bg-gray-700 dark:focus:text-white transition-colors"
             >
               In Progress
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => handleStatusChange('completed')}
-              className="dark:text-gray-200 dark:focus:bg-gray-700 dark:focus:text-white"
+              className="dark:text-gray-200 dark:focus:bg-gray-700 dark:focus:text-white transition-colors"
             >
               Completed
             </DropdownMenuItem>

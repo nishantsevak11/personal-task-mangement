@@ -1,129 +1,131 @@
-'use client';
+'use client'
 
-import { DashboardCalendar } from '@/components/dashboard-calendar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useQuery } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { useState } from 'react';
-import { AddTaskDialog } from '@/components/add-task-dialog';
-import { Plus } from 'lucide-react';
-
-interface Task {
-  id: number;
-  title: string;
-  description: string | null;
-  priority: string;
-  status: string;
-  dueDate: string | null;
-}
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Task } from '@/lib/types'
+import { getTasks } from '@/lib/api'
+import { Calendar } from '@/components/ui/calendar'
+import { DashboardStats } from '@/components/dashboard-stats'
+import { TaskForm } from '@/components/task-form'
+import { useSession } from 'next-auth/react'
+import { redirect } from 'next/navigation'
+import { format } from 'date-fns'
+import { Badge } from '@/components/ui/badge'
 
 export default function DashboardPage() {
-  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const { data: session, status } = useSession()
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
+  const [isAddingTask, setIsAddingTask] = useState(false)
 
-  const { data: tasks = [], refetch } = useQuery<Task[]>({
+  const { data: tasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ['tasks'],
-    queryFn: async () => {
-      const response = await fetch('/api/tasks');
-      if (!response.ok) throw new Error('Failed to fetch tasks');
-      return response.json();
-    },
-  });
+    queryFn: getTasks,
+    enabled: status === 'authenticated',
+  })
 
-  const handleAddTask = (date?: Date) => {
-    if (date) {
-      setSelectedDate(date);
-    }
-    setIsCreateDialogOpen(true);
-  };
-
-  const handleCreateDialogChange = (open: boolean) => {
-    setIsCreateDialogOpen(open);
-  };
-
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((task) => task.status === 'completed').length;
-  const pendingTasks = tasks.filter((task) => task.status === 'pending').length;
-  const overdueTasks = tasks.filter(
-    (task) =>
-      task.status === 'pending' &&
-      task.dueDate &&
-      new Date(task.dueDate) < new Date()
-  ).length;
-
-  const tasksForSelectedDate = tasks.filter((task) => {
-    if (!task.dueDate) return false;
-    const taskDate = new Date(task.dueDate);
+  if (status === 'loading' || isLoading) {
     return (
-      taskDate.getDate() === selectedDate?.getDate() &&
-      taskDate.getMonth() === selectedDate?.getMonth() &&
-      taskDate.getFullYear() === selectedDate?.getFullYear()
-    );
-  });
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (status === 'unauthenticated') {
+    redirect('/login')
+  }
+
+  const getTasksForDate = (date: Date) => {
+    return tasks.filter(task => {
+      if (!task.dueDate) return false
+      const taskDate = new Date(task.dueDate)
+      return (
+        taskDate.getDate() === date.getDate() &&
+        taskDate.getMonth() === date.getMonth() &&
+        taskDate.getFullYear() === date.getFullYear()
+      )
+    })
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight dark:text-white">Dashboard</h1>
-        <Button
-          onClick={() => handleAddTask()}
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" /> Add Task
-        </Button>
+    <div className="container mx-auto p-4">
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Calendar Section */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold">Calendar</h2>
+          <div className="border rounded-lg p-4 bg-white">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              modifiers={{
+                booked: (date) => getTasksForDate(date).length > 0,
+              }}
+              modifiersStyles={{
+                booked: {
+                  fontWeight: 'bold',
+                  textDecoration: 'underline',
+                },
+              }}
+            />
+            {selectedDate && (
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-semibold">
+                    Tasks for {format(selectedDate, 'PP')}
+                  </h3>
+                  <button
+                    onClick={() => setIsAddingTask(true)}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    + Add Task
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {getTasksForDate(selectedDate).map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center justify-between p-2 border rounded"
+                    >
+                      <span>{task.title}</span>
+                      <Badge
+                        variant={
+                          task.priority === 'high'
+                            ? 'destructive'
+                            : task.priority === 'medium'
+                            ? 'default'
+                            : 'secondary'
+                        }
+                      >
+                        {task.priority}
+                      </Badge>
+                    </div>
+                  ))}
+                  {getTasksForDate(selectedDate).length === 0 && (
+                    <p className="text-sm text-gray-500">No tasks for this date</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Stats Section */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold">Overview</h2>
+          <DashboardStats tasks={tasks} />
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="dark:bg-gray-800/50 dark:border-gray-700">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium dark:text-gray-200">Total Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold dark:text-white">{totalTasks}</div>
-          </CardContent>
-        </Card>
-        <Card className="dark:bg-gray-800/50 dark:border-gray-700">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium dark:text-gray-200">Completed Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{completedTasks}</div>
-          </CardContent>
-        </Card>
-        <Card className="dark:bg-gray-800/50 dark:border-gray-700">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium dark:text-gray-200">Pending Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pendingTasks}</div>
-          </CardContent>
-        </Card>
-        <Card className="dark:bg-gray-800/50 dark:border-gray-700">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium dark:text-gray-200">Overdue Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{overdueTasks}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="dark:bg-gray-800/50 dark:border-gray-700">
-        <CardContent className="p-6">
-          <DashboardCalendar
-            tasks={tasks}
-            selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-            onAddTask={handleAddTask}
-          />
-        </CardContent>
-      </Card>
-
-      <AddTaskDialog
-        open={isCreateDialogOpen}
-        onOpenChange={handleCreateDialogChange}
-        defaultDate={selectedDate}
-      />
+      {isAddingTask && (
+        <TaskForm
+          onClose={() => setIsAddingTask(false)}
+          initialDueDate={selectedDate}
+        />
+      )}
     </div>
-  );
+  )
 }

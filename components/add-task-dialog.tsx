@@ -23,37 +23,57 @@ import { Textarea } from './ui/textarea'
 import { useState } from 'react'
 import { createTask } from '@/app/actions/tasks'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { format } from 'date-fns'
 
 interface AddTaskDialogProps {
-  children: React.ReactNode
+  children: React.ReactNode;
+  defaultDate?: Date;
 }
 
-export function AddTaskDialog({ children }: AddTaskDialogProps) {
+export function AddTaskDialog({ children, defaultDate }: AddTaskDialogProps) {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [status, setStatus] = useState<'todo' | 'in-progress' | 'completed'>('todo')
-  const [dueDate, setDueDate] = useState('')
+  const [dueDate, setDueDate] = useState(defaultDate ? format(defaultDate, 'yyyy-MM-dd') : '')
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await createTask({
-      title,
-      description,
-      priority,
-      status,
-      dueDate: dueDate ? new Date(dueDate) : null,
-    })
-    setOpen(false)
-    router.refresh()
-    // Reset form
-    setTitle('')
-    setDescription('')
-    setPriority('medium')
-    setStatus('todo')
-    setDueDate('')
+    
+    if (!title.trim()) {
+      toast.error('Please enter a title')
+      return
+    }
+
+    try {
+      const result = await createTask({
+        title: title.trim(),
+        description: description.trim(),
+        priority,
+        status,
+        dueDate: dueDate ? new Date(dueDate) : undefined,
+      })
+
+      if (result.success) {
+        toast.success('Task created successfully! 🎉')
+        setOpen(false)
+        router.refresh()
+        // Reset form
+        setTitle('')
+        setDescription('')
+        setPriority('medium')
+        setStatus('todo')
+        setDueDate('')
+      } else {
+        toast.error(result.error || 'Failed to create task')
+      }
+    } catch (error) {
+      console.error('Error creating task:', error)
+      toast.error('Failed to create task')
+    }
   }
 
   return (
@@ -129,6 +149,7 @@ export function AddTaskDialog({ children }: AddTaskDialogProps) {
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
                 className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:border-blue-500"
+                required
               />
             </div>
           </div>

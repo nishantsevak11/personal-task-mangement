@@ -1,21 +1,27 @@
 'use client'
 
-import { Task } from '@/db/schema'
+import { Task, Project } from '@/lib/types'
 import { TaskCard } from './task-card'
 import { Button } from './ui/button'
 import { AddTaskDialog } from './add-task-dialog'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Input } from './ui/input'
+import { Badge } from './ui/badge'
 
-export function TaskList({ initialTasks }: { initialTasks: Task[] }) {
+interface TaskListProps {
+  tasks: Task[]
+  onTasksChange?: () => void
+  projects: Project[]
+}
+
+export function TaskList({ tasks = [], onTasksChange, projects }: TaskListProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<'priority' | 'date'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [selectedDate, setSelectedDate] = useState<Date>()
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
-  const filteredAndSortedTasks = initialTasks
+  const filteredAndSortedTasks = tasks
     .filter((task) =>
       task.title.toLowerCase().includes(searchQuery.toLowerCase())
     )
@@ -33,82 +39,132 @@ export function TaskList({ initialTasks }: { initialTasks: Task[] }) {
       }
     })
 
-  const handleAddTask = (date?: Date) => {
-    if (date) {
-      setSelectedDate(date)
-    }
-    setIsCreateDialogOpen(true)
+  const getProjectColor = (projectId: number | null) => {
+    if (!projectId) return null
+    const project = projects.find(p => p.id === projectId)
+    return project?.color
   }
 
-  const handleCreateDialogChange = (open: boolean) => {
-    setIsCreateDialogOpen(open)
-  }
-
-  const handleSortByPriority = () => {
-    if (sortBy === 'priority') {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortBy('priority')
-      setSortOrder('asc')
-    }
-  }
-
-  const handleSortByDate = () => {
-    if (sortBy === 'date') {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortBy('date')
-      setSortOrder('asc')
-    }
+  const getProjectName = (projectId: number | null) => {
+    if (!projectId) return null
+    const project = projects.find(p => p.id === projectId)
+    return project?.name
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Tasks</h1>
-        <AddTaskDialog
-          open={isCreateDialogOpen}
-          onOpenChange={handleCreateDialogChange}
-          defaultDate={selectedDate}
-        >
-          <Button>
-            <Plus className="mr-2 h-4 w-4" /> Add Task
-          </Button>
-        </AddTaskDialog>
-      </div>
-
-      <div className="flex gap-4 mb-6">
+    <div className="space-y-4">
+      <div className="flex gap-4 items-center">
         <Input
+          type="text"
           placeholder="Search tasks..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-xs"
+          className="flex-1"
         />
         <Button
-          variant={sortBy === 'priority' ? 'default' : 'outline'}
-          onClick={handleSortByPriority}
+          variant="outline"
+          onClick={() => setSortBy(sortBy === 'priority' ? 'date' : 'priority')}
         >
-          Priority {sortBy === 'priority' && (sortOrder === 'asc' ? '↑' : '↓')}
+          Sort by {sortBy === 'priority' ? 'Date' : 'Priority'}
         </Button>
         <Button
-          variant={sortBy === 'date' ? 'default' : 'outline'}
-          onClick={handleSortByDate}
+          variant="outline"
+          onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
         >
-          Due Date {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
+          {sortOrder === 'asc' ? '↑' : '↓'}
+        </Button>
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" /> Add Task
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredAndSortedTasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
-        ))}
+      <div className="space-y-2">
+        {filteredAndSortedTasks.length === 0 ? (
+          <div className="text-center text-gray-500 py-8">
+            No tasks found. Add some tasks to get started!
+          </div>
+        ) : (
+          filteredAndSortedTasks.map((task) => (
+            <div
+              key={task.id}
+              className="flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm"
+            >
+              <div className="space-y-1 flex-1">
+                <div className="flex items-center gap-2">
+                  {task.projectId && (
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: getProjectColor(task.projectId) }}
+                    />
+                  )}
+                  <h3 className="font-medium">{task.title}</h3>
+                </div>
+                {task.description && (
+                  <p className="text-sm text-gray-500">{task.description}</p>
+                )}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {task.projectId && (
+                    <Badge
+                      variant="outline"
+                      style={{
+                        backgroundColor: getProjectColor(task.projectId) + '20',
+                        borderColor: getProjectColor(task.projectId),
+                        color: getProjectColor(task.projectId),
+                      }}
+                    >
+                      {getProjectName(task.projectId)}
+                    </Badge>
+                  )}
+                  <Badge
+                    variant={
+                      task.priority === 'high'
+                        ? 'destructive'
+                        : task.priority === 'medium'
+                        ? 'default'
+                        : 'secondary'
+                    }
+                  >
+                    {task.priority}
+                  </Badge>
+                  <Badge
+                    variant={
+                      task.status === 'completed'
+                        ? 'default'
+                        : task.status === 'in_progress'
+                        ? 'secondary'
+                        : 'outline'
+                    }
+                  >
+                    {task.status}
+                  </Badge>
+                  {task.dueDate && (
+                    <Badge variant="outline">
+                      Due {new Date(task.dueDate).toLocaleDateString()}
+                    </Badge>
+                  )}
+                  {task.progress > 0 && (
+                    <Badge variant="secondary">
+                      {task.progress}% complete
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 ml-4">
+                <TaskCard task={task} onUpdate={onTasksChange} />
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
-      {filteredAndSortedTasks.length === 0 && (
-        <div className="text-center text-muted-foreground mt-10">
-          No tasks found. {searchQuery ? 'Try a different search.' : 'Create one to get started!'}
-        </div>
-      )}
+      <AddTaskDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onTaskCreated={() => {
+          setIsCreateDialogOpen(false)
+          onTasksChange?.()
+        }}
+      />
     </div>
   )
 }

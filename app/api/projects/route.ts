@@ -1,56 +1,71 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
-import { projects } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import { getUser } from '@/lib/auth';
-import { z } from 'zod';
+import { NextResponse } from 'next/server'
+import { getProjects, createProject, updateProject, deleteProject } from '@/lib/actions'
+import { auth } from '@/lib/auth'
 
-const createProjectSchema = z.object({
-  name: z.string().min(1, 'Project name is required'),
-  description: z.string().optional(),
-});
-
-export async function POST(request: NextRequest) {
+export async function GET() {
   try {
-    const user = await getUser();
-    if (!user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+    const session = await auth()
+    if (!session) {
+      return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const body = await request.json();
-    const validatedData = createProjectSchema.parse(body);
-
-    const project = await db
-      .insert(projects)
-      .values({
-        ...validatedData,
-        userId: user.id,
-      })
-      .returning();
-
-    return NextResponse.json(project[0]);
+    const projects = await getProjects()
+    return NextResponse.json(projects)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ errors: error.errors }, { status: 400 });
-    }
-    return new NextResponse('Internal Server Error', { status: 500 });
+    console.error('Failed to fetch projects:', error)
+    return new NextResponse('Internal Server Error', { status: 500 })
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const user = await getUser();
-    if (!user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+    const session = await auth()
+    if (!session) {
+      return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const userProjects = await db
-      .select()
-      .from(projects)
-      .where(eq(projects.userId, user.id));
-
-    return NextResponse.json(userProjects);
+    const data = await req.json()
+    const project = await createProject(data)
+    return NextResponse.json(project)
   } catch (error) {
-    return new NextResponse('Internal Server Error', { status: 500 });
+    console.error('Failed to create project:', error)
+    return new NextResponse('Internal Server Error', { status: 500 })
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const session = await auth()
+    if (!session) {
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    const data = await req.json()
+    const project = await updateProject(data)
+    return NextResponse.json(project)
+  } catch (error) {
+    console.error('Failed to update project:', error)
+    return new NextResponse('Internal Server Error', { status: 500 })
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const session = await auth()
+    if (!session) {
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    const { searchParams } = new URL(req.url)
+    const id = searchParams.get('id')
+    if (!id) {
+      return new NextResponse('Missing project ID', { status: 400 })
+    }
+
+    const success = await deleteProject(parseInt(id))
+    return NextResponse.json({ success })
+  } catch (error) {
+    console.error('Failed to delete project:', error)
+    return new NextResponse('Internal Server Error', { status: 500 })
   }
 }
